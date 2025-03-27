@@ -1,0 +1,75 @@
+import pandas as pd
+import pyodbc
+from datetime import datetime
+
+DRIVER_NAME = 'ODBC Driver 17 for SQL Server'
+DATABASE_NAME = 'IvyDBCustomer'
+
+def get_user_input():
+    try:
+        securityid = int(input("Enter the security ID: "))
+        start_date_str = input("Enter the start date (YYYY-MM-DD): ")
+        end_date_str = input("Enter the end date (YYYY-MM-DD): ")
+
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d')
+        end_date = datetime.strptime(end_date_str, '%Y-%m-%d')
+
+        current_date = datetime.today()
+
+        if end_date > current_date:
+            print("End date cannot exceed the current date. Please enter a valid date.")
+            return None, None, None
+
+        if start_date > end_date:
+            print("Start date cannot be after the end date. Please enter a valid date range.")
+            return None, None, None
+
+        return securityid, start_date, end_date
+    except ValueError:
+        print("Invalid input. Please enter valid dates in YYYY-MM-DD format.")
+        return None, None, None
+
+def create_sql_query(securityid, start_date, end_date):
+    start_date_str = start_date.strftime('%Y%m%d')
+    end_date_str = end_date.strftime('%Y%m%d')
+    
+    query = f"""
+        SELECT * FROM security_price
+        WHERE securityid = {securityid}
+        AND date BETWEEN '{start_date_str}' AND '{end_date_str}'
+    """
+    return query
+
+def choose_server():
+    print("Choose the server to connect to:")
+    print("1. PSQL103-USEA1A")
+    print("2. PSQL102-USEA1A")
+    choice = input("Enter the number (1 or 2): ")
+
+    if choice == '1':
+        return 'PSQL103-USEA1A'
+    elif choice == '2':
+        return 'PSQL102-USEA1A'
+    else:
+        print("Invalid choice. Defaulting to PSQL103-USEA1A.")
+        return 'PSQL103-USEA1A'
+
+def main():
+    SERVER_NAME = choose_server()
+    securityid, start_date, end_date = get_user_input()
+    
+    if securityid is not None and start_date is not None and end_date is not None:
+        conn = pyodbc.connect(
+            f'DRIVER={{{DRIVER_NAME}}};'
+            f'SERVER={SERVER_NAME};'
+            f'DATABASE={DATABASE_NAME};'
+            'Trusted_Connection=yes;'
+        )
+        
+        query = create_sql_query(securityid, start_date, end_date)
+        df = pd.read_sql(query, conn)
+        print(df.head())
+        conn.close()
+
+if __name__ == "__main__":
+    main()
